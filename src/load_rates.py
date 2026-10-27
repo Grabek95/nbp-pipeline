@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-NBP_URL = "https://api.nbp.pl/api/exchangerates/tables/A/?format=json"
+NBP_BASE = "https://api.nbp.pl/api/exchangerates/tables/A"
 
 INSERT_SQL = """
     INSERT INTO exchange_rates (rate_date, currency_code, currency_name, mid_rate, table_no)
@@ -16,17 +16,25 @@ INSERT_SQL = """
 """
 
 
-def fetch_rates():
-    response = requests.get(NBP_URL, timeout=10)
+def fetch_tables(url):
+    response = requests.get(url, timeout=10)
+    if response.status_code == 404:
+        return []
     response.raise_for_status()
-    table = response.json(parse_float=Decimal)[0]
+    return response.json(parse_float=Decimal)
+
+
+def tables_to_rows(tables):
     return [
-        (table["effectiveDate"], r["code"], r["currency"], r["mid"], table["no"])
-        for r in table["rates"]
+        (t["effectiveDate"], r["code"], r["currency"], r["mid"], t["no"])
+        for t in tables
+        for r in t["rates"]
     ]
 
 
 def save_rates(rows):
+    if not rows:
+        return
     conn_str = (
         f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
         f"@localhost:5432/{os.getenv('POSTGRES_DB')}"
@@ -37,9 +45,10 @@ def save_rates(rows):
 
 
 def main():
-    rows = fetch_rates()
+    tables = fetch_tables(f"{NBP_BASE}/?format=json")
+    rows = tables_to_rows(tables)
     save_rates(rows)
-    print(f"Pobrano {len(rows)} kursów z dnia {rows[0][0]}")
+    print(f"Pobrano {len(rows)} kursów")
 
 
 if __name__ == "__main__":
