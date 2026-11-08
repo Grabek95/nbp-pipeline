@@ -30,7 +30,7 @@ python src/load_rates.py
 
 ## Roadmap
 
-- [ ] Historical backfill
+- [x] Historical backfill
 - [ ] Logging and error handling
 - [ ] Scheduling
 - [ ] Raw data layer
